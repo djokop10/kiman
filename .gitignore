@@ -12,6 +12,14 @@ node_modules/
 .env.local
 .env*.local
 
+# Database & Upload Storage
+*.db
+*.db-journal
+*.sqlite
+backend/prisma/*.db
+storage/
+backend/storage/
+
 # Logs & OS Files
 *.log
 .DS_Store

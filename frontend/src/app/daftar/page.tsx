@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
@@ -15,7 +15,7 @@ import {
   Sparkles
 } from "lucide-react";
 
-export default function DaftarPage() {
+function DaftarContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const preSelectedEventId = searchParams.get("eventId");
@@ -356,5 +356,20 @@ export default function DaftarPage() {
         </form>
       )}
     </div>
+  );
+}
+
+export default function DaftarPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="max-w-3xl mx-auto px-4 py-16 text-center text-slate-400">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-emerald-500 mx-auto mb-4"></div>
+          <p>Memuat formulir pendaftaran...</p>
+        </div>
+      }
+    >
+      <DaftarContent />
+    </Suspense>
   );
 }
