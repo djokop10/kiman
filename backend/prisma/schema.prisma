@@ -1,0 +1,150 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           String         @id @default(uuid())
+  nama         String
+  noHp         String         @unique @map("no_hp")
+  namaBurung   String?        @map("nama_burung")
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+
+  pendaftaran  Pendaftaran[]
+  notifikasi   Notifikasi[]
+
+  @@map("users")
+}
+
+model OtpCode {
+  id        String   @id @default(uuid())
+  noHp      String   @map("no_hp")
+  code      String
+  expiresAt DateTime @map("expires_at")
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([noHp, code])
+  @@map("otp_codes")
+}
+
+model Admin {
+  id           String       @id @default(uuid())
+  nama         String
+  email        String       @unique
+  passwordHash String       @map("password_hash")
+  role         String       @default("ADMIN") // "ADMIN" | "SUPERADMIN"
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  auditLogs    AuditLog[]
+
+  @@map("admins")
+}
+
+model Event {
+  id           String        @id @default(uuid())
+  namaEvent    String        @map("nama_event")
+  tanggalLomba DateTime      @map("tanggal_lomba")
+  lokasi       String
+  deskripsi    String?
+  status       String        @default("BUKA") // "DRAFT" | "BUKA" | "BERJALAN" | "SELESAI"
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  kelasList    KelasLomba[]
+  pendaftaran  Pendaftaran[]
+
+  @@map("events")
+}
+
+model KelasLomba {
+  id          String        @id @default(uuid())
+  eventId     String        @map("event_id")
+  namaKelas   String        @map("nama_kelas")
+  harga       Int           // Dalam Rupiah
+  kuota       Int           // Kuota peserta
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  event       Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  pendaftaran Pendaftaran[]
+
+  @@map("kelas_lomba")
+}
+
+model Pendaftaran {
+  id                 String            @id @default(uuid())
+  userId             String            @map("user_id")
+  eventId            String            @map("event_id")
+  kelasLombaId       String            @map("kelas_lomba_id")
+  nomorRegistrasi    String            @unique @map("nomor_registrasi")
+  status             String            @default("MENUNGGU_SELEKSI") // MENUNGGU_SELEKSI, TIDAK_LOLOS, LOLOS_MENUNGGU_PEMBAYARAN, MENUNGGU_VERIFIKASI_PEMBAYARAN, DITOLAK_UPLOAD_ULANG, LUNAS_TERDAFTAR_RESMI
+  nomorUrut          Int?              @map("nomor_urut")
+  buktiTransferUrl   String?           @map("bukti_transfer_url")
+  catatanPenolakan   String?           @map("catatan_penolakan")
+  suratUrl           String?           @map("surat_url")
+  createdAt          DateTime          @default(now()) @map("created_at")
+  updatedAt          DateTime          @updatedAt @map("updated_at")
+
+  user               User              @relation(fields: [userId], references: [id], onDelete: Restrict)
+  event              Event             @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  kelasLomba         KelasLomba        @relation(fields: [kelasLombaId], references: [id], onDelete: Restrict)
+  notifikasi         Notifikasi[]
+  auditLogs          AuditLog[]
+  sheetSyncQueue     SheetSyncQueue[]
+
+  @@unique([kelasLombaId, nomorUrut])
+  @@index([status])
+  @@map("pendaftaran")
+}
+
+model AuditLog {
+  id               String            @id @default(uuid())
+  pendaftaranId    String            @map("pendaftaran_id")
+  adminId          String?           @map("admin_id")
+  aksi             String            // SELEKSI_LOLOS, SELEKSI_TIDAK_LOLOS, VERIFIKASI_APPROVE, VERIFIKASI_REJECT
+  statusSebelumnya String            @map("status_sebelumnya")
+  statusSesudahnya String            @map("status_sesudahnya")
+  catatan          String?
+  createdAt        DateTime          @default(now()) @map("created_at")
+
+  pendaftaran      Pendaftaran       @relation(fields: [pendaftaranId], references: [id], onDelete: Cascade)
+  admin            Admin?            @relation(fields: [adminId], references: [id], onDelete: SetNull)
+
+  @@map("audit_logs")
+}
+
+model Notifikasi {
+  id            String          @id @default(uuid())
+  userId        String          @map("user_id")
+  pendaftaranId String?         @map("pendaftaran_id")
+  pesan         String
+  jenis         String          @default("AUTO") // "AUTO" | "MANUAL"
+  dibaca        Boolean         @default(false)
+  createdAt     DateTime        @default(now()) @map("created_at")
+
+  user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pendaftaran   Pendaftaran?    @relation(fields: [pendaftaranId], references: [id], onDelete: SetNull)
+
+  @@map("notifikasi")
+}
+
+model SheetSyncQueue {
+  id            String     @id @default(uuid())
+  pendaftaranId String     @map("pendaftaran_id")
+  status        String     @default("PENDING") // "PENDING" | "SUCCESS" | "FAILED"
+  retryCount    Int        @default(0) @map("retry_count")
+  errorMsg      String?    @map("error_msg")
+  syncedAt      DateTime?  @map("synced_at")
+  createdAt     DateTime   @default(now()) @map("created_at")
+
+  pendaftaran   Pendaftaran @relation(fields: [pendaftaranId], references: [id], onDelete: Cascade)
+
+  @@map("sheet_sync_queue")
+}
